@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Messenger Test</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f2f3f5;
+        }
+
+        .page {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card {
+            width: 400px;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            margin-top: 0;
+            text-align: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #2563eb;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .secondary {
+            background: #6b7280;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .error {
+            color: #dc2626;
+            margin-bottom: 10px;
+        }
+
+        .success {
+            color: #16a34a;
+            margin-bottom: 10px;
+        }
+
+        #messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #f9fafb;
+        }
+
+        .message {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .my-message {
+            margin-left: auto;
+            background: #2563eb;
+            color: white;
+        }
+
+        .other-message {
+            margin-right: auto;
+            background: #e5e7eb;
+            color: black;
+        }
+
+        .message-info {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-bottom: 3px;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-input input {
+            margin: 0;
+        }
+
+        .chat-input button {
+            width: 100px;
+            margin: 0;
+        }
+
+        .status {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- ================= LOGIN ================= -->
+
+<div id="loginPage" class="page">
+
+    <div class="card">
+
+        <h1>Login</h1>
+
+        <div id="loginError" class="error"></div>
+
+        <input
+                id="login"
+                type="text"
+                placeholder="Login"
+        >
+
+        <input
+                id="password"
+                type="password"
+                placeholder="Password"
+        >
+
+        <button onclick="loginUser()">
+            Увійти
+        </button>
+
+        <button
+                class="secondary"
+                onclick="showRegister()">
+            Зареєструватися
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ================= REGISTER ================= -->
+
+<div id="registerPage" class="page hidden">
+
+    <div class="card">
+
+        <h1>Register</h1>
+
+        <div id="registerError" class="error"></div>
+
+        <input
+                id="registerLogin"
+                type="text"
+                placeholder="Login"
+        >
+
+        <input
+                id="registerPassword"
+                type="password"
+                placeholder="Password"
+        >
+
+        <input
+                id="registerName"
+                type="text"
+                placeholder="Name"
+        >
+
+        <button onclick="registerUser()">
+            Створити акаунт
+        </button>
+
+        <button
+                class="secondary"
+                onclick="showLogin()">
+            Назад
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ================= ONBOARDING ================= -->
+
+<div id="onboardingPage" class="page hidden">
+
+    <div class="card">
+
+        <h1>Ласкаво просимо!</h1>
+
+        <p>
+            Давай налаштуємо твій профіль.
+        </p>
+
+        <div id="onboardingError" class="error"></div>
+
+        <input
+                id="onboardingName"
+                type="text"
+                placeholder="Як тебе звати?"
+        >
+
+        <button onclick="completeOnboarding()">
+            Продовжити
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ================= MAIN ================= -->
+
+<div id="mainPage" class="page hidden">
+
+    <div class="card">
+
+        <h1>Messenger</h1>
+
+        <div id="userInfo"></div>
+
+        <div class="status" id="wsStatus">
+            WebSocket: підключення...
+        </div>
+
+        <input
+                id="receiverId"
+                type="number"
+                placeholder="ID отримувача"
+        >
+
+        <div id="messages"></div>
+
+        <div class="chat-input">
+
+            <input
+                    id="messageInput"
+                    type="text"
+                    placeholder="Повідомлення..."
+                    onkeydown="handleEnter(event)"
+            >
+
+            <button onclick="sendMessage()">
+                Send
+            </button>
+
+        </div>
+
+        <br>
+
+        <button
+                class="secondary"
+                onclick="logout()">
+            Вийти
+        </button>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    const API = "http://localhost:8080";
+
+    let currentUser = null;
+    let stompClient = null;
+
+
+    // =====================================================
+    // PAGE SWITCHING
+    // =====================================================
+
+    function showPage(pageId) {
+
+        document
+            .querySelectorAll(".page")
+            .forEach(page => page.classList.add("hidden"));
+
+        document
+            .getElementById(pageId)
+            .classList.remove("hidden");
+    }
+
+
+    function showLogin() {
+        showPage("loginPage");
+    }
+
+
+    function showRegister() {
+        showPage("registerPage");
+    }
+
+
+    // =====================================================
+    // REGISTER
+    // =====================================================
+
+    async function registerUser() {
+
+        const login =
+            document.getElementById("registerLogin").value;
+
+        const password =
+            document.getElementById("registerPassword").value;
+
+        const name =
+            document.getElementById("registerName").value;
+
+
+        try {
+
+            const response = await fetch(
+                API + "/auth/register",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        login: login,
+                        password: password,
+                        name: name
+                    })
+                }
+            );
+
+
+            if (!response.ok) {
+
+                const text = await response.text();
+
+                throw new Error(
+                    text || "Помилка реєстрації"
+                );
+            }
+
+
+            alert("Акаунт створено!");
+
+            showLogin();
+
+        } catch (error) {
+
+            document
+                .getElementById("registerError")
+                .innerText = error.message;
+        }
+    }
+
+
+    // =====================================================
+    // LOGIN
+    // =====================================================
+
+    async function loginUser() {
+
+        const login =
+            document.getElementById("login").value;
+
+        const password =
+            document.getElementById("password").value;
+
+
+        try {
+
+            const response = await fetch(
+                API + "/auth/login",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        login: login,
+                        password: password
+                    })
+                }
+            );
+
+
+            if (!response.ok) {
+
+                const text = await response.text();
+
+                throw new Error(
+                    text || "Неправильний login або password"
+                );
+            }
+
+
+            const data = await response.json();
+
+
+            /*
+             * Очікуємо приблизно:
+             *
+             * {
+             *     "token": "...",
+             *     "userId": 1
+             * }
+             */
+
+            localStorage.setItem(
+                "token",
+                data.token
+            );
+
+
+            localStorage.setItem(
+                "userId",
+                data.userId
+            );
+
+
+            await loadCurrentUser();
+
+        } catch (error) {
+
+            document
+                .getElementById("loginError")
+                .innerText = error.message;
+        }
+    }
+
+
+    // =====================================================
+    // CURRENT USER
+    // =====================================================
+
+    async function loadCurrentUser() {
+
+        /*
+         * Якщо у тебе ще немає GET /api/users/me,
+         * тимчасово можна замінити цю функцію.
+         */
+
+        const token =
+            localStorage.getItem("token");
+
+        const userId =
+            localStorage.getItem("userId");
+
+
+        try {
+
+            const response = await fetch(
+                API + "/api/users/" + userId,
+                {
+                    headers: {
+                        "Authorization":
+                            "Bearer " + token
+                    }
+                }
+            );
+
+
+            if (!response.ok) {
+                throw new Error(
+                    "Не вдалося отримати користувача"
+                );
+            }
+
+
+            currentUser = await response.json();
+
+
+            /*
+             * Тут перевіряємо onboarding.
+             *
+             * Поки що орієнтуємося на name.
+             *
+             * Якщо name порожній -> onboarding.
+             * Якщо name є -> main page.
+             */
+
+            if (!currentUser.name) {
+
+                document
+                    .getElementById("onboardingName")
+                    .value = "";
+
+                showPage("onboardingPage");
+
+            } else {
+
+                openMainPage();
+            }
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            /*
+             * Якщо endpoint /api/users/{id}
+             * ще не готовий, для тесту можна
+             * відкрити main page вручну.
+             */
+
+            openMainPage();
+        }
+    }
+
+
+    // =====================================================
+    // ONBOARDING
+    // =====================================================
+
+    async function completeOnboarding() {
+
+        const name =
+            document.getElementById("onboardingName").value.trim();
+
+
+        if (!name) {
+
+            document
+                .getElementById("onboardingError")
+                .innerText =
+                "Введи своє ім'я";
+
+            return;
+        }
+
+
+        const token =
+            localStorage.getItem("token");
+
+        const userId =
+            Number(localStorage.getItem("userId"));
+
+
+        try {
+
+            const response = await fetch(
+                API + "/api/onboarding",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json",
+
+                        "Authorization":
+                            "Bearer " + token
+                    },
+
+                    body: JSON.stringify({
+                        userId: userId,
+                        name: name
+                    })
+                }
+            );
+
+
+            if (!response.ok) {
+
+                const text = await response.text();
+
+                throw new Error(
+                    text || "Помилка onboarding"
+                );
+            }
+
+
+            currentUser.name = name;
+
+            openMainPage();
+
+
+        } catch (error) {
+
+            document
+                .getElementById("onboardingError")
+                .innerText =
+                error.message;
+        }
+    }
+
+
+    // =====================================================
+    // MAIN PAGE
+    // =====================================================
+
+    function openMainPage() {
+
+        showPage("mainPage");
+
+
+        document
+            .getElementById("userInfo")
+            .innerText =
+            "Ви: " +
+            (currentUser?.name || "User " +
+                localStorage.getItem("userId"));
+
+
+        connectWebSocket();
+    }
+
+
+    // =====================================================
+    // WEBSOCKET
+    // =====================================================
+
+    function connectWebSocket() {
+
+        if (stompClient) {
+            return;
+        }
+
+
+        const socket =
+            new SockJS(API + "/ws");
+
+
+        stompClient =
+            Stomp.over(socket);
+
+
+        stompClient.debug = null;
+
+
+        stompClient.connect(
+            {},
+            function () {
+
+                document
+                    .getElementById("wsStatus")
+                    .innerText =
+                    "WebSocket: CONNECTED";
+
+
+                /*
+                 * Підписка на всі повідомлення.
+                 *
+                 * Це відповідає твоєму:
+                 *
+                 * @SendTo("/topic/messages")
+                 */
+
+                stompClient.subscribe(
+                    "/topic/messages",
+                    function (message) {
+
+                        const data =
+                            JSON.parse(message.body);
+
+                        displayMessage(data);
+                    }
+                );
+
+
+                /*
+                 * Завантажуємо історію,
+                 * коли WebSocket підключився.
+                 */
+
+                loadConversation();
+            },
+            function () {
+
+                document
+                    .getElementById("wsStatus")
+                    .innerText =
+                    "WebSocket: DISCONNECTED";
+            }
+        );
+    }
+
+
+    // =====================================================
+    // SEND MESSAGE
+    // =====================================================
+
+    function sendMessage() {
+
+        if (!stompClient) {
+
+            alert("WebSocket не підключений");
+
+            return;
+        }
+
+
+        const receiver =
+            Number(
+                document.getElementById("receiverId").value
+            );
+
+
+        const content =
+            document
+                .getElementById("messageInput")
+                .value
+                .trim();
+
+
+        const sender =
+            Number(
+                localStorage.getItem("userId")
+            );
+
+
+        if (!receiver) {
+
+            alert("Введи ID отримувача");
+
+            return;
+        }
+
+
+        if (!content) {
+            return;
+        }
+
+
+        const message = {
+
+            sender: sender,
+
+            receiver: receiver,
+
+            content: content
+        };
+
+
+        stompClient.send(
+            "/app/chat",
+            {},
+            JSON.stringify(message)
+        );
+
+
+        document
+            .getElementById("messageInput")
+            .value = "";
+    }
+
+
+    // =====================================================
+    // DISPLAY MESSAGE
+    // =====================================================
+
+    function displayMessage(message) {
+
+        const currentUserId =
+            Number(
+                localStorage.getItem("userId")
+            );
+
+
+        const receiverId =
+            Number(
+                document.getElementById("receiverId").value
+            );
+
+
+        /*
+         * Показуємо тільки повідомлення
+         * поточної переписки.
+         */
+
+        const belongsToConversation =
+            (
+                Number(message.sender) === currentUserId &&
+                Number(message.receiver) === receiverId
+            )
+            ||
+            (
+                Number(message.sender) === receiverId &&
+                Number(message.receiver) === currentUserId
+            );
+
+
+        if (!belongsToConversation) {
+            return;
+        }
+
+
+        const container =
+            document.getElementById("messages");
+
+
+        const div =
+            document.createElement("div");
+
+
+        div.classList.add("message");
+
+
+        if (
+            Number(message.sender) === currentUserId
+        ) {
+
+            div.classList.add("my-message");
+
+        } else {
+
+            div.classList.add("other-message");
+        }
+
+
+        div.innerHTML = `
+            <div class="message-info">
+                User ${message.sender}
+            </div>
+
+            <div>
+                ${escapeHtml(message.content)}
+            </div>
+        `;
+
+
+        container.appendChild(div);
+
+
+        container.scrollTop =
+            container.scrollHeight;
+    }
+
+
+    // =====================================================
+    // LOAD HISTORY
+    // =====================================================
+
+    async function loadConversation() {
+
+        const currentUserId =
+            Number(
+                localStorage.getItem("userId")
+            );
+
+
+        const receiverId =
+            Number(
+                document.getElementById("receiverId").value
+            );
+
+
+        if (!receiverId) {
+            return;
+        }
+
+
+        const token =
+            localStorage.getItem("token");
+
+
+        try {
+
+            const response = await fetch(
+                API +
+                "/api/chat/" +
+                currentUserId +
+                "/" +
+                receiverId,
+                {
+                    headers: {
+                        "Authorization":
+                            "Bearer " + token
+                    }
+                }
+            );
+
+
+            if (!response.ok) {
+                return;
+            }
+
+
+            const messages =
+                await response.json();
+
+
+            document
+                .getElementById("messages")
+                .innerHTML = "";
+
+
+            messages.forEach(
+                message => displayMessage(message)
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "History error:",
+                error
+            );
+        }
+    }
+
+
+    // =====================================================
+    // ENTER
+    // =====================================================
+
+    function handleEnter(event) {
+
+        if (event.key === "Enter") {
+
+            sendMessage();
+        }
+    }
+
+
+    // =====================================================
+    // LOGOUT
+    // =====================================================
+
+    function logout() {
+
+        if (stompClient) {
+
+            stompClient.disconnect();
+
+            stompClient = null;
+        }
+
+
+        localStorage.removeItem("token");
+        localStorage.removeItem("userId");
+
+
+        currentUser = null;
+
+
+        showLogin();
+    }
+
+
+    // =====================================================
+    // XSS PROTECTION
+    // =====================================================
+
+    function escapeHtml(text) {
+
+        const div =
+            document.createElement("div");
+
+        div.textContent = text;
+
+        return div.innerHTML;
+    }
+
+
+    // =====================================================
+    // CHANGE CHAT
+    // =====================================================
+
+    document
+        .getElementById("receiverId")
+        .addEventListener(
+            "change",
+            loadConversation
+        );
+
+
+    // =====================================================
+    // AUTO LOGIN
+    // =====================================================
+
+    window.addEventListener(
+        "load",
+        function () {
+
+            const token =
+                localStorage.getItem("token");
+
+            const userId =
+                localStorage.getItem("userId");
+
+
+            if (token && userId) {
+
+                loadCurrentUser();
+
+            } else {
+
+                showLogin();
+            }
+        }
+    );
+
+</script>
+
+</body>
+</html>
+```
